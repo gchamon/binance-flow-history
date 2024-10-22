@@ -1,16 +1,15 @@
-from binance.client import Client
-import binance.exceptions
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-import time
-from typing import Optional
-from pprint import PrettyPrinter
-import sqlite3
+import argparse
 from datetime import datetime
 import json
-from typing import List, Dict, Any
 import os
-import argparse
+from pprint import PrettyPrinter
+import sqlite3
+import time
+from typing import Any, Dict, List, Optional
+
+from binance.client import Client
+import binance.exceptions
+from dateutil.relativedelta import relativedelta
 
 
 pp = PrettyPrinter(indent=4)
