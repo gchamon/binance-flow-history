@@ -5,17 +5,25 @@ import os
 from pprint import PrettyPrinter
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+
+from dateutil.relativedelta import relativedelta
 
 from binance.client import Client
 import binance.exceptions
-from dateutil.relativedelta import relativedelta
 
+T = TypeVar("T")
 
 pp = PrettyPrinter(indent=4)
 
 
-def pprint(title, message):
+def pprint(title: str, message: Any) -> None:
+    """Print formatted output with a title.
+
+    Args:
+        title: The header text to display before the formatted message
+        message: The data to be pretty printed
+    """
     print(title)
     pp.pprint(message)
 
@@ -27,12 +35,24 @@ client = Client(
 
 
 def get_full_history(
-    getter,
-    from_date,
-    unwrapper=lambda x: x,
+    getter: Callable[..., Any],
+    from_date: str,
+    unwrapper: Callable[[Any], List[T]] = lambda x: x,
     month_interval: int = 1,
     delay: Optional[int] = None,
-):
+) -> List[T]:
+    """Retrieve complete historical data from Binance API within a date range.
+
+    Args:
+        getter: API function to call for retrieving data
+        from_date: Start date in format 'YYYY-MM'
+        unwrapper: Function to extract relevant data from API response
+        month_interval: Number of months to include in each API call
+        delay: Optional delay between API calls in seconds
+
+    Returns:
+        List of historical data items
+    """
     start_time = datetime.strptime(from_date, "%Y-%m")
     end_time = datetime.now()
     date_intervals = [
@@ -50,11 +70,24 @@ def get_full_history(
     return full_history
 
 
-def get_min_from_headers(headers):
+def get_min_from_headers(headers: Dict[str, str]) -> str:
+    """Extract minutes from the Date header of API response.
+
+    Args:
+        headers: Response headers from Binance API
+
+    Returns:
+        Minutes portion of the timestamp as string
+    """
     return headers["Date"][20:22]
 
 
-def wait_server_minute_rollover(getter_response_headers):
+def wait_server_minute_rollover(getter_response_headers: Dict[str, str]) -> None:
+    """Wait until the server minute changes to avoid rate limiting.
+
+    Args:
+        getter_response_headers: Headers from the previous API response
+    """
     print("waiting server minute rollover (max 1 min wait time)...")
     getter_date_min = get_min_from_headers(getter_response_headers)
     client.get_exchange_info()
@@ -66,12 +99,24 @@ def wait_server_minute_rollover(getter_response_headers):
 
 
 def get_history(
-    getter,
-    start_time_date,
-    end_time_date,
+    getter: Callable[..., T],
+    start_time_date: datetime,
+    end_time_date: datetime,
     delay: Optional[int] = None,
     retrying: bool = False,
-):
+) -> Optional[T]:
+    """Retrieve historical data for a specific time period with retry logic.
+
+    Args:
+        getter: API function to call for retrieving data
+        start_time_date: Start datetime
+        end_time_date: End datetime
+        delay: Optional delay between retries in seconds
+        retrying: Flag indicating if this is a retry attempt
+
+    Returns:
+        API response data or None if request fails
+    """
     start_time = int(start_time_date.timestamp() * 1000)
     end_time = int(end_time_date.timestamp() * 1000)
     try:
@@ -100,13 +145,25 @@ def get_history(
     return result
 
 
-def get_fiat_withdraw_history(**kwargs):
+def get_fiat_withdraw_history(**kwargs: Any) -> Dict[str, Any]:
+    """Retrieve fiat withdrawal history from Binance API.
+
+    Args:
+        **kwargs: Additional parameters to pass to the API call
+
+    Returns:
+        Dictionary containing fiat withdrawal history data
+    """
     kwargs["transactionType"] = "1-withdraw"
     return client.get_fiat_deposit_withdraw_history(**kwargs)
 
 
-def create_tables(conn: sqlite3.Connection):
-    """Create SQLite tables for Binance data"""
+def create_tables(conn: sqlite3.Connection) -> None:
+    """Create SQLite tables for storing Binance data.
+
+    Args:
+        conn: SQLite database connection
+    """
     cursor = conn.cursor()
 
     # Fiat Withdrawals table
@@ -164,8 +221,15 @@ def create_tables(conn: sqlite3.Connection):
     conn.commit()
 
 
-def insert_fiat_withdrawals(conn: sqlite3.Connection, data: List[Dict[str, Any]]):
-    """Insert data into fiat_withdrawals table"""
+def insert_fiat_withdrawals(
+    conn: sqlite3.Connection, data: List[Dict[str, Any]]
+) -> None:
+    """Insert fiat withdrawal data into SQLite database.
+
+    Args:
+        conn: SQLite database connection
+        data: List of fiat withdrawal records
+    """
     cursor = conn.cursor()
     cursor.executemany(
         """
@@ -192,8 +256,13 @@ def insert_fiat_withdrawals(conn: sqlite3.Connection, data: List[Dict[str, Any]]
     conn.commit()
 
 
-def insert_convert_trades(conn: sqlite3.Connection, data: List[Dict[str, Any]]):
-    """Insert data into convert_trades table"""
+def insert_convert_trades(conn: sqlite3.Connection, data: List[Dict[str, Any]]) -> None:
+    """Insert conversion trade data into SQLite database.
+
+    Args:
+        conn: SQLite database connection
+        data: List of conversion trade records
+    """
     cursor = conn.cursor()
     cursor.executemany(
         """
@@ -223,8 +292,13 @@ def insert_convert_trades(conn: sqlite3.Connection, data: List[Dict[str, Any]]):
     conn.commit()
 
 
-def insert_deposits(conn: sqlite3.Connection, data: List[Dict[str, Any]]):
-    """Insert data into deposits table"""
+def insert_deposits(conn: sqlite3.Connection, data: List[Dict[str, Any]]) -> None:
+    """Insert deposit data into SQLite database.
+
+    Args:
+        conn: SQLite database connection
+        data: List of deposit records
+    """
     cursor = conn.cursor()
     cursor.executemany(
         """
@@ -256,7 +330,14 @@ def insert_deposits(conn: sqlite3.Connection, data: List[Dict[str, Any]]):
 
 
 def parse_data(data_str: str) -> List[Dict[str, Any]]:
-    """Parse the string data into a list of dictionaries"""
+    """Parse JSON string data into Python objects.
+
+    Args:
+        data_str: JSON string to parse
+
+    Returns:
+        List of dictionaries containing parsed data
+    """
     try:
         return json.loads(data_str.replace("'", '"'))
     except json.JSONDecodeError as e:
@@ -265,13 +346,26 @@ def parse_data(data_str: str) -> List[Dict[str, Any]]:
 
 
 def init_database(db_path: str = "binance_data.db") -> sqlite3.Connection:
-    """Initialize the database and return the connection"""
+    """Initialize SQLite database and create required tables.
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Returns:
+        SQLite database connection
+    """
     conn = sqlite3.connect(db_path)
     create_tables(conn)
     return conn
 
 
-def main():
+def main() -> None:
+    """Main function to collect and store Binance trading data.
+
+    Retrieves fiat withdrawals, conversion trades, and deposits from Binance API
+    and stores them in a SQLite database. Data collection starts from either
+    the specified date or January of the current year.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--from-date", type=str, required=False)
     args = parser.parse_args()
