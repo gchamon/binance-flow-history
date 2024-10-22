@@ -6,7 +6,7 @@ It uses python-binance to interact with binance API. Binance API has some quirks
 to wait before retrying when hitting rate limit with response header `Retry-After`, but it doesn't work for all endpoints.
 
 This project tries to overcome this by retrying after the minute from the binance server date changes. This suggestion was
-found [here](), and it seems to work.
+found [here](https://dev.binance.vision/t/retry-after-header-is-0-when-receiving-429-error/2407/5), and it seems to work.
 
 **Be warned**: hitting API limits can cause a temporary ban. This project won't be responsible if you lock yourself out of the API.
 
