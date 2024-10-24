@@ -59,7 +59,7 @@ def get_full_history(
         start_time + relativedelta(months=m)
         for m in range(0, end_time.month - start_time.month + 1, month_interval)
     ]
-    date_intervals.append(end_time + relativedelta(months=1))
+    date_intervals.append(date_intervals[-1] + relativedelta(months=1))
     responses = [
         get_history(getter, cur_start, cur_end, delay)
         for cur_start, cur_end in zip(date_intervals[:-1], date_intervals[1:])
@@ -124,6 +124,7 @@ def get_history(
             startTime=start_time,
             endTime=end_time,
         )
+        print(start_time_date, end_time_date, result)
     except binance.exceptions.BinanceAPIException as e:
         if retrying is False:
             time.sleep(5)
