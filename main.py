@@ -8,6 +8,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from dateutil.relativedelta import relativedelta
+from dateutil.rrule import rrule, MONTHLY
 
 from binance.client import Client
 import binance.exceptions
@@ -55,10 +56,7 @@ def get_full_history(
     """
     start_time = datetime.strptime(from_date, "%Y-%m")
     end_time = datetime.now()
-    date_intervals = [
-        start_time + relativedelta(months=m)
-        for m in range(0, end_time.month - start_time.month + 1, month_interval)
-    ]
+    date_intervals = [dt for dt in rrule(MONTHLY, dtstart=start_time, until=end_time)]
     date_intervals.append(date_intervals[-1] + relativedelta(months=1))
     responses = [
         get_history(getter, cur_start, cur_end, delay)
@@ -131,6 +129,7 @@ def get_history(
             error_headers = client.response.headers
             if e.status_code == 429:
                 print("hitting rate limit")
+                print(e)
             wait_server_minute_rollover(error_headers)
             result = get_history(
                 getter,
@@ -372,6 +371,7 @@ def main() -> None:
     args = parser.parse_args()
     from_date = args.from_date if args.from_date else f"{datetime.now().year}-01"
 
+    print("getting fiat withdrawals...")
     fiat_withdrawals = get_full_history(
         get_fiat_withdraw_history,
         from_date,
@@ -379,10 +379,12 @@ def main() -> None:
         unwrapper=lambda x: x["data"],
     )
 
+    print("getting convert history...")
     convert_trades = get_full_history(
         client.get_convert_trade_history, from_date, unwrapper=lambda x: x["list"]
     )
 
+    print("getting deposit history...")
     deposits = get_full_history(client.get_deposit_history, from_date)
     # Initialize database and insert data
     conn = init_database()
@@ -409,6 +411,8 @@ def main() -> None:
 
     finally:
         conn.close()
+
+    print("done")
 
 
 if __name__ == "__main__":
