@@ -29,10 +29,7 @@ def pprint(title: str, message: Any) -> None:
     pp.pprint(message)
 
 
-client = Client(
-    api_key=os.environ["BINANCE_API_KEY"],
-    api_secret=os.environ["BINANCE_API_SECRET"],
-)
+client = None
 
 
 def get_full_history(
@@ -367,9 +364,21 @@ def main() -> None:
     the specified date or January of the current year.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--from-date", type=str, required=False)
+    parser.add_argument(
+        "-d",
+        "--from-date",
+        type=str,
+        required=False,
+        default=f"{datetime.now().year}-01",
+        help=f"Defaults to first month of current year: {datetime.now().year}-01",
+    )
     args = parser.parse_args()
-    from_date = args.from_date if args.from_date else f"{datetime.now().year}-01"
+    from_date = args.from_date
+
+    client = Client(
+        api_key=os.environ["BINANCE_API_KEY"],
+        api_secret=os.environ["BINANCE_API_SECRET"],
+    )
 
     print("getting fiat withdrawals...")
     fiat_withdrawals = get_full_history(
